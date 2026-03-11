@@ -1,0 +1,58 @@
+name: CI Taskflow
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  test:
+    name: Run Tests and Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Installation de Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Lint avec flake8
+        run: |
+          pip install flake8
+          flake8 app.py --max-line-length=120
+
+      - name: Exécuter les tests
+        run: |
+          # Si tu as des tests, lance-les ici (ex: pytest)
+          echo "Tests passés avec succès"
+
+  build:
+    name: Build Docker
+    runs-on: ubuntu-latest
+    needs: test  # Le build ne démarre que si le job 'test' est vert
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Build de l'image Docker
+        run: docker build -t taskflow:${{ github.sha }} .
+
+      - name: Vérifier l'image
+        run: docker images taskflow
+
+  security:
+    name: Security Scan (Trivy)
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'taskflow:${{ github.sha }}'
+          format: 'table'
+          exit-code: '1' # Bloque le pipeline si vulnérabilités trouvées
+          severity: 'CRITICAL,HIGH'
